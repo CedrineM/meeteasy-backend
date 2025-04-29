@@ -1,0 +1,13 @@
+{
+  "name": "meeteasy-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "CedrineM <cedrinemilesi@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "mongoose": "^8.14.0"
+  }
+}
