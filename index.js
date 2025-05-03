@@ -21,6 +21,8 @@ app.get("/", (req, res) => {
 // import des routes
 const userRoutes = require("./routes/user");
 app.use(userRoutes);
+const noteRoutes = require("./routes/note");
+app.use(noteRoutes);
 
 //toutes les routes non existantes
 app.use((req, res) => {
