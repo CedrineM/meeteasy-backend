@@ -10,7 +10,7 @@ Permettre aux utilisateurs de saisir des notes de réunion librement, puis de g�
 
 - Frontend : React
 - Backend : Express (Node.js)
-- Base de données : MongoDB (optionnel pour historique)
+- Base de données : MongoDB
 - API IA : OpenAI API (GPT-3.5)
 - Hébergement : Netlify (front), Render (back)
 

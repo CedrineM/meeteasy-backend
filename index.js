@@ -5,6 +5,7 @@ require("dotenv").config();
 
 //création du serveur express
 const app = express();
+app.use(express.json());
 
 //connexion à la base de donnée
 mongoose.connect(process.env.MONGODB_LOCAL_URI);
@@ -16,6 +17,10 @@ app.get("/", (req, res) => {
       "Welcome to the web application to facilitate the writing of meeting minutes.",
   });
 });
+
+// import des routes
+const userRoutes = require("./routes/user");
+app.use(userRoutes);
 
 //toutes les routes non existantes
 app.use((req, res) => {
