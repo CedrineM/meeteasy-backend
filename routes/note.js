@@ -8,12 +8,15 @@ const mongoose = require("mongoose");
 const Note = require("../models/Note");
 const User = require("../models/User");
 
+//import middleware
+const auth = require("../middleware/auth");
+
 //CRUD
 //Create
 //route création d'une note
-router.post("/note", async (req, res) => {
+router.post("/note", auth, async (req, res) => {
   try {
-    // console.log(req.body, req.headers.authorization);
+    // console.log(req.body);
 
     const {
       meetingType,
@@ -35,12 +38,9 @@ router.post("/note", async (req, res) => {
         status: 400,
       };
     }
-    const user = await User.findOne({
-      token: req.headers.authorization.replace("Bearer ", ""),
-    });
-    // console.log(user);
+
     const newNote = new Note({
-      userId: user._id,
+      userId: req.user._id,
       meetingType: meetingType,
       meetingDate: meetingDate,
       meetingObject: meetingObject,
@@ -49,9 +49,9 @@ router.post("/note", async (req, res) => {
     });
     console.log(newNote);
 
-    user.notes.push(newNote._id);
+    req.user.notes.push(newNote._id);
     await newNote.save();
-    await user.save();
+    await req.user.save();
 
     return res
       .status(201)
@@ -66,7 +66,7 @@ router.post("/note", async (req, res) => {
 
 //Read
 //récupération d'une note par son ID
-router.get("/note/:id", async (req, res) => {
+router.get("/note/:id", auth, async (req, res) => {
   try {
     console.log(req.params.id);
     //récupération de la note
@@ -79,23 +79,10 @@ router.get("/note/:id", async (req, res) => {
       };
     }
 
-    //vérifier autorisation de lecture
-    const user = await User.findOne({
-      token: req.headers.authorization.replace("Bearer ", ""),
-    }).populate("notes");
-
-    if (!user) {
-      throw {
-        message: "This user not existe",
-        status: 401,
-      };
-    }
-    // console.log("tabNotes", user.notes);
-
-    if (user._id !== note.userId) {
+    if (req.user._id !== note.userId) {
     } else {
       throw {
-        message: "You not autorize to modify this note",
+        message: "You not autorize to read this note",
         status: 401,
       };
     }
@@ -109,14 +96,13 @@ router.get("/note/:id", async (req, res) => {
   }
 });
 //récupération des notes par ID user
-router.get("/notes", async (req, res) => {
+router.get("/notes", auth, async (req, res) => {
   try {
-    const user = await User.findOne({
-      token: req.headers.authorization.replace("Bearer ", ""),
-    }).populate("notes");
-    const notesUser = await Note.find({ userId: user._id });
-    console.log(notesUser);
-    return res.status(200).json({ count: notesUser.length, notes: notesUser });
+    console.log(req.user);
+    await req.user.populate("notes");
+    return res
+      .status(200)
+      .json({ count: req.user.notes.length, notes: req.user.notes });
   } catch (error) {
     console.error(error);
     return res
@@ -125,7 +111,7 @@ router.get("/notes", async (req, res) => {
   }
 });
 //Update
-router.put("/note/:id", async (req, res) => {
+router.put("/note/:id", auth, async (req, res) => {
   try {
     console.log(req.params.id);
     //récupération de la note
@@ -139,19 +125,7 @@ router.put("/note/:id", async (req, res) => {
       };
     }
     //vérifier autorisation de lecture
-    const user = await User.findOne({
-      token: req.headers.authorization.replace("Bearer ", ""),
-    }).populate("notes");
-
-    if (!user) {
-      throw {
-        message: "This user not existe",
-        status: 401,
-      };
-    }
-    // console.log("tabNotes", user.notes);
-
-    if (user._id !== note.userId) {
+    if (req.user._id !== note.userId) {
     } else {
       throw {
         message: "You not autorize to read this note",
@@ -188,51 +162,27 @@ router.put("/note/:id", async (req, res) => {
 });
 
 //Delete --> pas encore de middleware
-router.delete("/note/:id", async (req, res) => {
+router.delete("/note/:id", auth, async (req, res) => {
   try {
-    // quand middleware et vérification d'autorisation utiliser seulement findone and delete
-
-    console.log(req.params.id);
-    //récupération de la note
-    const note = await Note.findById(req.params.id);
-    console.log("noteFind", note);
-    if (!note) {
+    //vérifier autorisation de delete
+    if (
+      req.user.notes.indexOf(new mongoose.Types.ObjectId(req.params.id)) === -1
+    ) {
       throw {
-        message: "Note not found",
-        status: 404,
-      };
-    }
-
-    //vérifier autorisation de lecture
-    const user = await User.findOne({
-      token: req.headers.authorization.replace("Bearer ", ""),
-    }).populate("notes");
-
-    if (!user) {
-      throw {
-        message: "This user not existe",
+        message: "You not autorize to deleted this note",
         status: 401,
       };
     }
-    // console.log("tabNotes", user.notes);
-
-    if (!user._id.equals(note.userId)) {
-      throw {
-        message: "You are not authorized to delete this note",
-        status: 401,
-      };
-    }
-
-    // Suppression de la note
-    const result = await Note.deleteOne({ _id: req.params.id });
+    // console.log(req.params.id);
+    //récupération de la note et suppression
+    const result = await Note.findByIdAndDelete(req.params.id);
 
     if (result.deletedCount === 0) {
       throw { message: "Delete failed", status: 400 };
     }
 
-    await user.updateOne({
-      $pull: { notes: new mongoose.Types.ObjectId(req.params.id) },
-    });
+    req.user.notes.pull(new mongoose.Types.ObjectId(req.params.id));
+    await req.user.save();
 
     return res.status(200).json({ message: "Note successfully deleted" });
   } catch (error) {
