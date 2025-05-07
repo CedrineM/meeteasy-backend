@@ -5,10 +5,14 @@ const router = express.Router();
 const uid2 = require("uid2");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
+const mongoose = require("mongoose");
 
 //import des modèles
 const User = require("../models/User");
+const Note = require("../models/Note");
 
+//import middleware
+const auth = require("../middleware/auth");
 //CRUD
 //Create
 router.post("/user/signup", async (req, res) => {
@@ -64,9 +68,101 @@ router.post("/user/signup", async (req, res) => {
   }
 });
 
-//route création d'une note
+//connexion
+router.post("/user/login", async (req, res) => {
+  try {
+    console.log(req.body);
+    const user = await User.findOne({ email: req.body.email });
+    //Est ce que les informations communiquer sont correct
+    if (!user) {
+      throw {
+        message: "The information communicated are not correct ",
+        status: 401,
+      };
+    }
+    const hashReq = SHA256(req.body.password + user.salt).toString(encBase64);
+    if (hashReq !== user.hash) {
+      throw {
+        message: "The information communicated are not correct ",
+        status: 401,
+      };
+    }
+    return res.status(202).json({
+      _id: user._id,
+      token: user.token,
+      username: user.username,
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(error.status || 500)
+      .json({ message: error.message || "Internal server Error" });
+  }
+});
+
 //Read
+router.get("/user", auth, (req, res) => {
+  try {
+    const { hash, salt, token, _id, ...safeUser } = req.user.toObject();
+    return res.status(200).json(safeUser);
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(error.status || 500)
+      .json({ message: error.message || "Internal server Error" });
+  }
+});
 //Update
+router.put("/user", auth, async (req, res) => {
+  try {
+    console.log(req.body);
+    //mise à jour du user
+    const { username, email, password, confirmePassword } = req.body;
+    const updates = {};
+    if (username !== undefined) updates.username = username;
+    if (email !== undefined) updates.email = email;
+    if (password !== undefined) {
+      if (password !== confirmePassword) {
+        throw {
+          message: "Passwords must be identical",
+          status: 401,
+        };
+      }
+      //concaténation du password+salt - et création du hash
+      const newHash = SHA256(password + req.user.salt).toString(encBase64);
+      updates.hash = newHash;
+    }
+
+    Object.assign(req.user, updates);
+
+    await req.user.save();
+    return res
+      .status(200)
+      .json({ message: "This information has been successfully modified" });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(error.status || 500)
+      .json({ message: error.message || "Internal server Error" });
+  }
+});
 //Delete
+
+router.delete("/user", auth, async (req, res) => {
+  try {
+    await Note.deleteMany({
+      userId: req.user._id,
+    });
+    await req.user.deleteOne();
+    return res
+      .status(200)
+      .json({ message: "This account has been successfully deleted " });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(error.status || 500)
+      .json({ message: error.message || "Internal server Error" });
+  }
+});
 
 module.exports = router;
