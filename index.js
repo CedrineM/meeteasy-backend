@@ -29,6 +29,9 @@ app.use((req, res) => {
   return res.status(404).json({ message: "Error 404, Page not Found" });
 });
 
-app.listen(process.env.PORT, () => {
+const server = app.listen(process.env.PORT, () => {
   console.log("Server Started");
 });
+
+// Exporter l'app pour pouvoir l'utiliser dans les tests
+module.exports = server; // C'est ce qui va permettre à Supertest de l'utiliser
